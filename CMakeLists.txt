@@ -28,7 +28,7 @@ endif()
 # --------------------------------------------------------
 # [关键修复] 必须包含 wrap/ply/plylib.cpp，否则链接时会报错 "Undefined symbols ... vcg::ply::..."
 add_executable(vcg-simplifier 
-    src/main.cpp
+    src/main_glb.cpp
     "${LOCAL_VCGLIB_PATH}/wrap/ply/plylib.cpp" 
 )
 
@@ -45,5 +45,9 @@ target_include_directories(vcg-simplifier PRIVATE ${LOCAL_VCGLIB_PATH})
 
 # (C) 本地源码
 target_include_directories(vcg-simplifier PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)
+
+# (D) 【新增】TinyGLTF
+# 告诉编译器去 lib/tinygltf 目录下找头文件
+target_include_directories(vcg-simplifier PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/lib/tinygltf")
 
 message(STATUS "Ready to build using local libraries.")
