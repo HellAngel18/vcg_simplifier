@@ -1,7 +1,7 @@
 {
-  "name": "mesh-simplifier",
+  "name": "vcg-simplifier",
   "version": "0.1.0",
   "dependencies": [
-    "vcglib"
+    "eigen3"
   ]
 }
