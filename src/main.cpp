@@ -1,7 +1,7 @@
 #include <cmath>
+#include <filesystem>
 #include <iostream>
 #include <string>
-#include <unistd.h>
 #include <vector>
 
 // VCG Headers
@@ -125,8 +125,9 @@ int main(int argc, char **argv) {
 
     string pathStr   = inputPath;
     size_t lastSlash = pathStr.rfind('/');
-    if (lastSlash != string::npos)
-        chdir(pathStr.substr(0, lastSlash).c_str());
+    if (lastSlash != string::npos) {
+        filesystem::current_path(pathStr.substr(0, lastSlash));
+    }
 
     MyMesh m;
 

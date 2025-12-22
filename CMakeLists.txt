@@ -40,10 +40,13 @@ target_link_libraries(vcg-simplifier PRIVATE Eigen3::Eigen)
 
 # (B) 本地 VCGLib
 target_include_directories(vcg-simplifier PRIVATE ${LOCAL_VCGLIB_PATH})
-# 添加 wrap 目录以便能 #include <wrap/io_trimesh/import.h>
-# target_include_directories(vcg-simplifier PRIVATE ${LOCAL_VCGLIB_PATH}/wrap)
 
 # (C) 本地源码
 target_include_directories(vcg-simplifier PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)
+
+# Disable secure warnings
+if(MSVC)
+    target_compile_definitions(vcg-simplifier PRIVATE _CRT_SECURE_NO_WARNINGS)
+endif()
 
 message(STATUS "Ready to build using local libraries.")
