@@ -5,14 +5,14 @@
 	"FriendlyName": "VCG Simplifier",
 	"Description": "Model simplification using VCGLib",
 	"Category": "Editor",
-	"CreatedBy": "HellAngel18",
+	"CreatedBy": "2018wzh",
 	"CreatedByURL": "",
 	"DocsURL": "",
 	"MarketplaceURL": "",
 	"SupportURL": "",
 	"CanContainContent": false,
 	"IsBetaVersion": false,
-	"IsExperimentalVersion": false,
+	"IsExperimentalVersion": true,
 	"Installed": false,
 	"Modules": [
 		{
