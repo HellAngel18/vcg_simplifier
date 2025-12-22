@@ -61,12 +61,12 @@ release
 .vscode/
 
 # Build folders
-build/
+[Bb]uild/
 
 vcpkg_installed/
 
 .clangd
 
-data/
+[Dd]ata/
 .DS_Store
 Thumbs.db
