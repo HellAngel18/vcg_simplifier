@@ -1,28 +1,18 @@
-# vcg_simplifier
-VCG-Simplifier is a lightweight, texture-aware mesh simplification tool written in C++. It utilizes Quadric Error Metrics (QEM) to reduce polygon count for OBJ and GLB models while effectively preserving UV coordinates and visual fidelity.
+# VCG Simplifier Unreal Plugin
 
-## 🔨 Build / 编译
+This plugin integrates VCGLib's quadric error metrics simplification into Unreal Engine as a LOD generator.
 
-### Prerequisites (环境要求)
-* **CMake**
-* **C++ Compiler**
-* **Git**
+## Installation
 
-### Build Steps (构建步骤)
+1. Copy the `VCGSimplifier` folder to your project's `Plugins` directory.
+2. Ensure `vcglib` is present in `Extras/vcglib`.
+3. Rebuild your project.
 
-1. **Clone the repository** (Clone 仓库)
-   ```bash
-   git clone [https://github.com/HellAngel18/vcg_simplifier.git](https://github.com/HellAngel18/vcg_simplifier.git)
-   cd vcg_simplifier
-    ```
-2. **Configure and Build** (配置并编译)
-    ```bash
-    cmake -B build
+## Usage
 
-    cmake --build build --config Release
-    ```
-3. **Run the Simplifier** (运行简化器)
-    ```bash
-    cd build
-    ./vcg-simplifier -i input.glb/obj -o output.glb/obj -r 0.5
-    ```
+Once enabled, the plugin registers itself as a mesh reduction handler. You can select it in the Project Settings under `Editor -> Mesh Simplification`.
+
+## Implementation Details
+
+- **Simplifier**: A wrapper around VCG's `LocalOptimization` with `TriEdgeCollapseQuadricTex`.
+- **VCGMeshReduction**: Implements `IMeshReduction` to bridge Unreal's `FRawMesh` and VCG's `MyMesh`.

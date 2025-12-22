@@ -1,0 +1,24 @@
+{
+	"FileVersion": 3,
+	"Version": 1,
+	"VersionName": "1.0",
+	"FriendlyName": "VCG Simplifier",
+	"Description": "Model simplification using VCGLib",
+	"Category": "Editor",
+	"CreatedBy": "HellAngel18",
+	"CreatedByURL": "",
+	"DocsURL": "",
+	"MarketplaceURL": "",
+	"SupportURL": "",
+	"CanContainContent": false,
+	"IsBetaVersion": false,
+	"IsExperimentalVersion": false,
+	"Installed": false,
+	"Modules": [
+		{
+			"Name": "VCGSimplifier",
+			"Type": "Editor",
+			"LoadingPhase": "Default"
+		}
+	]
+}

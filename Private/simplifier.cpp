@@ -1,7 +1,7 @@
 #include "simplifier.h"
 #include <vcg/complex/algorithms/local_optimization.h>
 
-void Simplifier::Clean(MyMesh &m) {
+void Simplifier::Clean(MyMesh& m) {
     vcg::tri::Clean<MyMesh>::RemoveDuplicateVertex(m);
     vcg::tri::Clean<MyMesh>::RemoveDuplicateFace(m);
     vcg::tri::Clean<MyMesh>::RemoveDegenerateFace(m);
@@ -10,7 +10,7 @@ void Simplifier::Clean(MyMesh &m) {
     vcg::tri::Allocator<MyMesh>::CompactEveryVector(m);
 }
 
-void Simplifier::Simplify(MyMesh &m, const Params &params) {
+void Simplifier::Simplify(MyMesh& m, const Params& params) {
     // 拓扑更新
     vcg::tri::UpdateTopology<MyMesh>::FaceFace(m);
     vcg::tri::UpdateTopology<MyMesh>::VertexFace(m);
