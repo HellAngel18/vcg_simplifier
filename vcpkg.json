@@ -2,6 +2,7 @@
   "name": "vcg-simplifier",
   "version": "0.1.0",
   "dependencies": [
-    "eigen3"
+    "eigen3",
+    "tinygltf"
   ]
 }

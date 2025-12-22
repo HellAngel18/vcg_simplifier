@@ -28,7 +28,9 @@ endif()
 # --------------------------------------------------------
 # [关键修复] 必须包含 wrap/ply/plylib.cpp，否则链接时会报错 "Undefined symbols ... vcg::ply::..."
 add_executable(vcg-simplifier 
-    src/main_glb.cpp
+    src/main.cpp
+    src/obj_loader.cpp
+    src/glb_loader.cpp
     "${LOCAL_VCGLIB_PATH}/wrap/ply/plylib.cpp" 
 )
 
@@ -40,14 +42,15 @@ target_link_libraries(vcg-simplifier PRIVATE Eigen3::Eigen)
 
 # (B) 本地 VCGLib
 target_include_directories(vcg-simplifier PRIVATE ${LOCAL_VCGLIB_PATH})
-# 添加 wrap 目录以便能 #include <wrap/io_trimesh/import.h>
-# target_include_directories(vcg-simplifier PRIVATE ${LOCAL_VCGLIB_PATH}/wrap)
 
 # (C) 本地源码
 target_include_directories(vcg-simplifier PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)
 
 # (D) 【新增】TinyGLTF
-# 告诉编译器去 lib/tinygltf 目录下找头文件
-target_include_directories(vcg-simplifier PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/lib/tinygltf")
+find_path(TINYGLTF_INCLUDE_DIRS "tiny_gltf.h")
+target_include_directories(vcg-simplifier PRIVATE ${TINYGLTF_INCLUDE_DIRS})
 
-message(STATUS "Ready to build using local libraries.")
+# Disable secure warnings
+target_compile_definitions(vcg-simplifier PRIVATE _CRT_SECURE_NO_WARNINGS)
+
+message(STATUS "Ready to build")
