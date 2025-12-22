@@ -68,3 +68,5 @@ vcpkg_installed/
 .clangd
 
 data/
+.DS_Store
+Thumbs.db

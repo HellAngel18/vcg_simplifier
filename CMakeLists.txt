@@ -1,11 +1,10 @@
 cmake_minimum_required(VERSION 3.20)
 
-# 1. Mac系统路径配置
-if(APPLE)
-    list(APPEND CMAKE_PREFIX_PATH "/opt/homebrew" "/usr/local")
+if(NOT CMAKE_TOOLCHAIN_FILE AND DEFINED ENV{VCPKG_ROOT})
+    set(CMAKE_TOOLCHAIN_FILE "$ENV{VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake" CACHE STRING "Vcpkg toolchain file")
 endif()
 
-project(mesh-simplifier VERSION 0.1.0 LANGUAGES CXX)
+project(vcg-simplifier VERSION 0.1.0 LANGUAGES CXX)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
@@ -28,7 +27,7 @@ endif()
 # 4. 定义可执行文件
 # --------------------------------------------------------
 # [关键修复] 必须包含 wrap/ply/plylib.cpp，否则链接时会报错 "Undefined symbols ... vcg::ply::..."
-add_executable(mesh-simplifier 
+add_executable(vcg-simplifier 
     src/main.cpp
     "${LOCAL_VCGLIB_PATH}/wrap/ply/plylib.cpp" 
 )
@@ -37,14 +36,14 @@ add_executable(mesh-simplifier
 # 5. 设置包含路径
 # --------------------------------------------------------
 # (A) Eigen3
-target_link_libraries(mesh-simplifier PRIVATE Eigen3::Eigen)
+target_link_libraries(vcg-simplifier PRIVATE Eigen3::Eigen)
 
 # (B) 本地 VCGLib
-target_include_directories(mesh-simplifier PRIVATE ${LOCAL_VCGLIB_PATH})
+target_include_directories(vcg-simplifier PRIVATE ${LOCAL_VCGLIB_PATH})
 # 添加 wrap 目录以便能 #include <wrap/io_trimesh/import.h>
-target_include_directories(mesh-simplifier PRIVATE ${LOCAL_VCGLIB_PATH}/wrap)
+# target_include_directories(vcg-simplifier PRIVATE ${LOCAL_VCGLIB_PATH}/wrap)
 
 # (C) 本地源码
-target_include_directories(mesh-simplifier PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)
+target_include_directories(vcg-simplifier PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)
 
 message(STATUS "Ready to build using local libraries.")
