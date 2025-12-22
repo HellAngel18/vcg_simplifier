@@ -29,6 +29,7 @@ endif()
 # [关键修复] 必须包含 wrap/ply/plylib.cpp，否则链接时会报错 "Undefined symbols ... vcg::ply::..."
 add_executable(vcg-simplifier 
     src/main.cpp
+    src/simplifier.cpp
     src/obj_loader.cpp
     src/glb_loader.cpp
     "${LOCAL_VCGLIB_PATH}/wrap/ply/plylib.cpp" 
