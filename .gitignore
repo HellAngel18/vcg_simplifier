@@ -70,3 +70,6 @@ vcpkg_installed/
 [Dd]ata/
 .DS_Store
 Thumbs.db
+
+# models
+./temp_unloads
