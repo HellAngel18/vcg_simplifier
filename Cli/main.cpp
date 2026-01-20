@@ -7,19 +7,45 @@
 // --- 主程序 ---
 void LogStatus(MyMesh &m, const char *stage) { printf("[%s] V:%d F:%d\n", stage, m.VN(), m.FN()); }
 
+void PrintUsage(const char* progName) {
+    printf("Usage: %s -i <input> -o <output> [options]\n", progName);
+    printf("Options:\n");
+    printf("  -r  <float>   Simplification Ratio (default: 0.5). If > 0, overrides target count.\n");
+    printf("  -tc <int>     Target Face Count (default: 0). Used if ratio <= 0.\n");
+    printf("  -q  <float>   Quality Threshold (default: 0.3).\n");
+    printf("  -tw <float>   Texture Weight (default: 1.0).\n");
+    printf("  -bw <float>   Boundary Weight (default: 1.0).\n");
+    printf("  -pb <0/1>     Preserve Boundary (default: 1).\n");
+    printf("  -pt <0/1>     Preserve Topology (default: 1).\n");
+}
+
 int main(int argc, char **argv) {
     std::string inputPath;
     std::string outputPath;
-    float ratio = 0.5f;
+    
+    // 初始化参数为默认值
+    Simplifier::Params params;
 
     // 简单的参数解析
     for (int i = 1; i < argc; ++i) {
         if (strcmp(argv[i], "-i") == 0 && i + 1 < argc)
             inputPath = argv[++i];
-        else if (strcmp(argv[i], "-r") == 0 && i + 1 < argc)
-            ratio = float(atof(argv[++i]));
         else if (strcmp(argv[i], "-o") == 0 && i + 1 < argc)
             outputPath = argv[++i];
+        else if (strcmp(argv[i], "-r") == 0 && i + 1 < argc)
+            params.ratio = float(atof(argv[++i]));
+        else if (strcmp(argv[i], "-tc") == 0 && i + 1 < argc)
+            params.TargetFaceCount = atoi(argv[++i]);
+        else if (strcmp(argv[i], "-q") == 0 && i + 1 < argc)
+            params.qualityThr = atof(argv[++i]);
+        else if (strcmp(argv[i], "-tw") == 0 && i + 1 < argc)
+            params.TextureWeight = atof(argv[++i]);
+        else if (strcmp(argv[i], "-bw") == 0 && i + 1 < argc)
+            params.BoundaryWeight = atof(argv[++i]);
+        else if (strcmp(argv[i], "-pb") == 0 && i + 1 < argc)
+            params.preserveBoundary = (atoi(argv[++i]) != 0);
+        else if (strcmp(argv[i], "-pt") == 0 && i + 1 < argc)
+            params.preserveTopology = (atoi(argv[++i]) != 0);
     }
 
     MyMesh m;
@@ -57,9 +83,6 @@ int main(int argc, char **argv) {
     Simplifier::Clean(m);
 
     // 简化
-    Simplifier::Params params;
-    params.ratio = ratio;
-    printf("Targeting %d faces\n", (int)(m.fn * ratio));
     Simplifier::Simplify(m, params);
 
     LogStatus(m, "Final");

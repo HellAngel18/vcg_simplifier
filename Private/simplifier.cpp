@@ -34,9 +34,20 @@ void Simplifier::Simplify(MyMesh& m, const Params& params) {
     pp.PreserveBoundary  = params.preserveBoundary;
     pp.PreserveTopology  = params.preserveTopology;
     pp.QualityThr        = params.qualityThr;
-    pp.ExtraTCoordWeight = params.extraTCoordWeight;
 
-    int targetFaceCount = (int)(m.fn * params.ratio);
+    pp.ExtraTCoordWeight = params.TextureWeight;
+    pp.BoundaryWeight    = params.BoundaryWeight;
+
+
+
+    int targetFaceCount;
+    if(params.ratio > 0.0f && params.ratio <= 1.0f) {
+        targetFaceCount = (int)(m.fn * params.ratio);
+    } else {
+        targetFaceCount = params.TargetFaceCount;
+    }
+
+    printf("Targeting %d faces\n", targetFaceCount);
 
     vcg::LocalOptimization<MyMesh> Deci(m, &pp);
     Deci.Init<MyCollapse>();
