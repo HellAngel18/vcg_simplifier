@@ -72,4 +72,4 @@ vcpkg_installed/
 Thumbs.db
 
 # models
-./temp_unloads
+temp_uploads/
