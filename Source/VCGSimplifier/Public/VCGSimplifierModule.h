@@ -18,5 +18,5 @@ class FVCGSimplifierModule : public IMeshReductionModule {
     virtual FString GetName() override;
 
   private:
-    class FVCGMeshReduction *MeshReduction;
+    class FVCGMeshReduction *MeshReduction = nullptr; // 添加 = nullptr
 };

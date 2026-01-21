@@ -43,6 +43,7 @@ public class VCGSimplifier : ModuleRules
 			new string[]
 			{
 				"Core",
+				"MeshReductionInterface"
 				// ... add other public dependencies that you statically link with here ...
 			}
 		);
