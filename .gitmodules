@@ -1,3 +1,3 @@
-[submodule "Extras/vcglib"]
-	path = Extras/vcglib
+[submodule "Source/ThirdParty/vcglib"]
+	path = Source/ThirdParty/vcglib
 	url = https://github.com/cnr-isti-vclab/vcglib.git

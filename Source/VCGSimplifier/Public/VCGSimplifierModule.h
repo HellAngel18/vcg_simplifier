@@ -1,7 +1,7 @@
 #pragma once
 
 #include "CoreMinimal.h"
-#include "MeshReductionInterfaces.h"
+#include "IMeshReductionInterfaces.h"
 #include "Modules/ModuleManager.h"
 
 class FVCGSimplifierModule : public IMeshReductionModule {
@@ -14,8 +14,8 @@ class FVCGSimplifierModule : public IMeshReductionModule {
     virtual class IMeshReduction *GetStaticMeshReductionInterface() override;
     virtual class IMeshReduction *GetSkeletalMeshReductionInterface() override;
     virtual class IMeshMerging *GetMeshMergingInterface() override;
-    virtual class IMeshMerging *GetProxyLODMeshMergingInterface() override;
-    virtual const FString GetName() override;
+    virtual class IMeshMerging *GetDistributedMeshMergingInterface() override;
+    virtual FString GetName() override;
 
   private:
     class FVCGMeshReduction *MeshReduction;

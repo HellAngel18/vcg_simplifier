@@ -3,22 +3,40 @@ using System.IO;
 
 public class VCGSimplifier : ModuleRules
 {
-	public VCGSimplifier(ReadOnlyTargetRules Target) : base(Target)
+    // 模块路径
+    private string ModulePath
+    {
+        get
+        {
+            return ModuleDirectory;
+        }
+    }
+    // 第三方库路径
+    private string ThirdPartyPath
+    {
+        get
+        {
+            return Path.GetFullPath(Path.Combine(ModulePath, "../../Source/ThirdParty"));
+        }
+    }
+    public VCGSimplifier(ReadOnlyTargetRules Target) : base(Target)
 	{
-		PCHUsage = ModuleRules.PCHUsageMode.UseExplicitOrSharedPCHs;
+		bWarningsAsErrors = false;
+        PCHUsage = ModuleRules.PCHUsageMode.UseExplicitOrSharedPCHs;
 
-		PublicIncludePaths.AddRange(
+        PublicSystemIncludePaths.AddRange(
 			new string[] {
-				// ... add public include paths required here ...
+				Path.Combine(ThirdPartyPath, "vcglib"),
+				Path.Combine(ThirdPartyPath, "vcglib/eigenlib")
 			}
-			);
+		);
 				
 		
 		PrivateIncludePaths.AddRange(
 			new string[] {
 				// ... add other private include paths required here ...
 			}
-			);
+		);
 			
 		
 		PublicDependencyModuleNames.AddRange(
@@ -27,7 +45,7 @@ public class VCGSimplifier : ModuleRules
 				"Core",
 				// ... add other public dependencies that you statically link with here ...
 			}
-			);
+		);
 			
 		
 		PrivateDependencyModuleNames.AddRange(
@@ -55,11 +73,6 @@ public class VCGSimplifier : ModuleRules
 			}
 			);
 
-        // Add VCGLib and Eigen paths
-        string PluginExtrasPath = Path.Combine(ModuleDirectory, "../Extras");
-        PublicIncludePaths.Add(Path.Combine(PluginExtrasPath, "vcglib"));
-        PublicIncludePaths.Add(Path.Combine(PluginExtrasPath, "vcglib/eigenlib"));
-        
         // VCG needs some defines
         PublicDefinitions.Add("VCG_USE_EIGEN");
 	}
