@@ -19,13 +19,6 @@ public class VCGMeshReduction : ModuleRules
             return Path.GetFullPath(Path.Combine(ModulePath, "../../Source/ThirdParty"));
         }
     }
-    private string SharedPath
-    {
-        get
-        {
-            return Path.GetFullPath(Path.Combine(ModulePath, "../../Source/Shared"));
-        }
-    }
     public VCGMeshReduction(ReadOnlyTargetRules Target) : base(Target)
     {
         bWarningsAsErrors = false;
@@ -34,8 +27,7 @@ public class VCGMeshReduction : ModuleRules
         PublicSystemIncludePaths.AddRange(
             new string[] {
                 Path.Combine(ThirdPartyPath, "vcglib"),
-                Path.Combine(ThirdPartyPath, "vcglib/eigenlib"),
-                SharedPath
+                Path.Combine(ThirdPartyPath, "vcglib/eigenlib")
             }
         );
 

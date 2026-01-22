@@ -1,9 +1,7 @@
-#include "VCGMeshReduction.h"
 #include "Features/IModularFeatures.h"
+#include "IMeshReductionInterfaces.h"
 #include "MeshDescription.h"
 #include "StaticMeshAttributes.h"
-#include "VCGMeshReduction.h"
-#include "VCGMeshReductionModule.h"
 #include "mymesh.h"
 #include "simplifier.h"
 
@@ -19,9 +17,6 @@ class FVCGMeshReductionModule : public IMeshReductionModule {
     virtual class IMeshMerging *GetMeshMergingInterface() override;
     virtual class IMeshMerging *GetDistributedMeshMergingInterface() override;
     virtual FString GetName() override;
-
-  private:
-    class FVCGMeshReduction *MeshReduction = nullptr; // 添加 = nullptr
 };
 
 DEFINE_LOG_CATEGORY_STATIC(LogVCGMeshReduction, Log, All);
@@ -205,6 +200,8 @@ class FVCGMeshReduction : public IMeshReduction {
                       uint32 NumVertices, uint32 NumTriangles) const override {
         return false;
     }
+
+    static FVCGMeshReduction *Create() { return new FVCGMeshReduction(); }
 };
 
 TUniquePtr<FVCGMeshReduction> GVCGMeshReduction;

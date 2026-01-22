@@ -16,7 +16,7 @@ message(STATUS "Found Eigen3: ${EIGEN3_INCLUDE_DIR}")
 # 3. 配置本地 VCGLib 路径
 # 我们直接指向你刚才放好的 'vcglib' 文件夹
 set(SRC_DIR "${CMAKE_CURRENT_SOURCE_DIR}/Source")
-set(LOCAL_VCGLIB_PATH "${SRC_DIR}/Extras/vcglib")
+set(LOCAL_VCGLIB_PATH "${SRC_DIR}/ThirdParty/vcglib")
 
 if(EXISTS "${LOCAL_VCGLIB_PATH}/vcg/complex/complex.h")
     message(STATUS "Found local VCGLib at: ${LOCAL_VCGLIB_PATH}")
@@ -29,10 +29,10 @@ endif()
 # --------------------------------------------------------
 # [关键修复] 必须包含 wrap/ply/plylib.cpp，否则链接时会报错 "Undefined symbols ... vcg::ply::..."
 add_executable(vcg-simplifier 
-    ${SRC_DIR}/Cli/main.cpp
-    ${SRC_DIR}/Shared/simplifier.cpp
-    ${SRC_DIR}/Cli/obj_loader.cpp
-    ${SRC_DIR}/Cli/glb_loader.cpp
+    ${SRC_DIR}/Cli/Private/main.cpp
+    ${SRC_DIR}/VCGMeshReduction/Private/simplifier.cpp
+    ${SRC_DIR}/Cli/Private/obj_loader.cpp
+    ${SRC_DIR}/Cli/Private/glb_loader.cpp
     "${LOCAL_VCGLIB_PATH}/wrap/ply/plylib.cpp" 
 )
 
@@ -46,9 +46,8 @@ target_link_libraries(vcg-simplifier PRIVATE Eigen3::Eigen)
 target_include_directories(vcg-simplifier PRIVATE ${LOCAL_VCGLIB_PATH})
 
 # (C) 本地源码
-target_include_directories(vcg-simplifier PRIVATE ${SRC_DIR}/Public)
-target_include_directories(vcg-simplifier PRIVATE ${SRC_DIR}/Private)
-target_include_directories(vcg-simplifier PRIVATE ${SRC_DIR}/../Cli)
+target_include_directories(vcg-simplifier PRIVATE ${SRC_DIR}/Cli/Public)
+target_include_directories(vcg-simplifier PRIVATE ${SRC_DIR}/VCGMeshReduction/Public)
 
 # (D) 【新增】TinyGLTF
 find_path(TINYGLTF_INCLUDE_DIRS "tiny_gltf.h")
