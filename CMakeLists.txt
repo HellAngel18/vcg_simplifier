@@ -15,7 +15,7 @@ message(STATUS "Found Eigen3: ${EIGEN3_INCLUDE_DIR}")
 
 # 3. 配置本地 VCGLib 路径
 # 我们直接指向你刚才放好的 'vcglib' 文件夹
-set(SRC_DIR "${CMAKE_CURRENT_SOURCE_DIR}/Source/VCGSimplifier")
+set(SRC_DIR "${CMAKE_CURRENT_SOURCE_DIR}/Source")
 set(LOCAL_VCGLIB_PATH "${SRC_DIR}/Extras/vcglib")
 
 if(EXISTS "${LOCAL_VCGLIB_PATH}/vcg/complex/complex.h")
@@ -29,10 +29,10 @@ endif()
 # --------------------------------------------------------
 # [关键修复] 必须包含 wrap/ply/plylib.cpp，否则链接时会报错 "Undefined symbols ... vcg::ply::..."
 add_executable(vcg-simplifier 
-    ${SRC_DIR}/../Cli/main.cpp
-    ${SRC_DIR}/Private/simplifier.cpp
-    ${SRC_DIR}/../Cli/obj_loader.cpp
-    ${SRC_DIR}/../Cli/glb_loader.cpp
+    ${SRC_DIR}/Cli/main.cpp
+    ${SRC_DIR}/Shared/simplifier.cpp
+    ${SRC_DIR}/Cli/obj_loader.cpp
+    ${SRC_DIR}/Cli/glb_loader.cpp
     "${LOCAL_VCGLIB_PATH}/wrap/ply/plylib.cpp" 
 )
 

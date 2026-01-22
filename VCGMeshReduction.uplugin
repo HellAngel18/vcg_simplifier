@@ -2,8 +2,8 @@
 	"FileVersion": 3,
 	"Version": 1,
 	"VersionName": "1.0",
-	"FriendlyName": "VCG Simplifier",
-	"Description": "Model simplification using VCGLib",
+	"FriendlyName": "VCG Mesh Reduction",
+	"Description": "Mesh simplification using VCGLib",
 	"Category": "Editor",
 	"CreatedBy": "2018wzh",
 	"CreatedByURL": "",
@@ -16,7 +16,7 @@
 	"Installed": false,
 	"Modules": [
 		{
-			"Name": "VCGSimplifier",
+			"Name": "VCGMeshReduction",
 			"Type": "Editor",
 			"LoadingPhase": "PreDefault"
 		}

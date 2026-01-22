@@ -4,7 +4,7 @@ This plugin integrates VCGLib's quadric error metrics simplification into Unreal
 
 ## Installation
 
-1. Copy the `VCGSimplifier` folder to your project's `Plugins` directory.
+1. Copy the `VCGMeshReduction` folder to your project's `Plugins` directory.
 2. Ensure `vcglib` is present in `Extras/vcglib`.
 3. Rebuild your project.
 
