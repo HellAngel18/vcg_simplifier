@@ -1,7 +1,7 @@
 #include "simplifier.h"
 #include <vcg/complex/algorithms/local_optimization.h>
 
-void Simplifier::Clean(MyMesh& m) {
+void Simplifier::Clean(MyMesh &m) {
     vcg::tri::Clean<MyMesh>::RemoveDuplicateVertex(m);
     vcg::tri::Clean<MyMesh>::RemoveDuplicateFace(m);
     vcg::tri::Clean<MyMesh>::RemoveDegenerateFace(m);
@@ -10,13 +10,13 @@ void Simplifier::Clean(MyMesh& m) {
     vcg::tri::Allocator<MyMesh>::CompactEveryVector(m);
 }
 
-void Simplifier::Simplify(MyMesh& m, const Params& params) {
+void Simplifier::Simplify(MyMesh &m, const Params &params) {
     // 拓扑更新
     vcg::tri::UpdateTopology<MyMesh>::FaceFace(m);
     vcg::tri::UpdateTopology<MyMesh>::VertexFace(m);
     vcg::tri::UpdateFlags<MyMesh>::FaceBorderFromVF(m);
     vcg::tri::UpdateNormal<MyMesh>::PerFaceNormalized(m);
-    vcg::tri::UpdateNormal<MyMesh>::PerVertexFromCurrentFaceNormal(m);
+    vcg::tri::UpdateNormal<MyMesh>::PerVertex(m);
     vcg::tri::UpdateNormal<MyMesh>::NormalizePerVertex(m);
 
     // 简化初始化
@@ -35,8 +35,16 @@ void Simplifier::Simplify(MyMesh& m, const Params& params) {
     pp.PreserveTopology  = params.preserveTopology;
     pp.QualityThr        = params.qualityThr;
     pp.ExtraTCoordWeight = params.extraTCoordWeight;
+    pp.BoundaryWeight    = params.boundaryWeight;
+    pp.NormalCheck       = params.normalCheck;
+    pp.OptimalPlacement  = params.optimalPlacement;
 
-    int targetFaceCount = (int)(m.fn * params.ratio);
+    int targetFaceCount;
+    if (params.targetFaceCount > 0) {
+        targetFaceCount = params.targetFaceCount;
+    } else {
+        targetFaceCount = (int)(m.fn * params.ratio);
+    }
 
     vcg::LocalOptimization<MyMesh> Deci(m, &pp);
     Deci.Init<MyCollapse>();

@@ -2,6 +2,7 @@
 #include "IMeshReductionInterfaces.h"
 #include "MeshDescription.h"
 #include "StaticMeshAttributes.h"
+#include "StaticMeshOperations.h"
 #include "mymesh.h"
 #include "simplifier.h"
 
@@ -26,45 +27,59 @@ class FVCGMeshReduction : public IMeshReduction {
   public:
     virtual ~FVCGMeshReduction() {}
 
-    // IMeshReduction interface - UE5 Adapter
+    void ConvertToVCGMesh(const FMeshDescription &InMesh, MyMesh &OutMesh) {
+        OutMesh.Clear();
+        UE_LOG(LogVCGMeshReduction, Log,
+               TEXT("ConvertToVCGMesh - Start. Input Vertices: %d, Triangles: %d"),
+               InMesh.Vertices().Num(), InMesh.Triangles().Num());
 
-    virtual void
-    ReduceMeshDescription(FMeshDescription &OutReducedMesh, float &OutMaxDeviation,
-                          const FMeshDescription &InMesh,
-                          const FOverlappingCorners &InOverlappingCorners,
-                          const struct FMeshReductionSettings &ReductionSettings) override {
-
-        MyMesh m;
-
-        // 1. Convert FMeshDescription to MyMesh
         FStaticMeshConstAttributes InAttributes(InMesh);
         TVertexAttributesConstRef<FVector3f> InVertexPositions = InAttributes.GetVertexPositions();
         TVertexInstanceAttributesConstRef<FVector2f> InVertexInstanceUVs =
             InAttributes.GetVertexInstanceUVs();
+        TVertexInstanceAttributesConstRef<FVector4f> InVertexInstanceColors =
+            InAttributes.GetVertexInstanceColors();
 
-        // Add Vertices
+        // 1. Add Vertices
         // Note: FMeshDescription Vertices can be sparse.
         // We iterate available vertices.
-
-        vcg::tri::Allocator<MyMesh>::AddVertices(m, InMesh.Vertices().Num());
+        vcg::tri::Allocator<MyMesh>::AddVertices(OutMesh, InMesh.Vertices().Num());
 
         TMap<FVertexID, int32> VertexIDToVCGIndex;
         int32 VCGVertIdx = 0;
 
         for (const FVertexID VertexID : InMesh.Vertices().GetElementIDs()) {
-            const FVector3f &Pos   = InVertexPositions[VertexID];
-            m.vert[VCGVertIdx].P() = vcg::Point3f(Pos.X, Pos.Y, Pos.Z);
+            const FVector3f &Pos         = InVertexPositions[VertexID];
+            OutMesh.vert[VCGVertIdx].P() = vcg::Point3f(Pos.X, Pos.Y, Pos.Z);
+
+            // Import Vertex Color (Take average or first instance)
+            if (InVertexInstanceColors.GetNumElements() > 0) {
+                TArrayView<const FVertexInstanceID> VertexInstances =
+                    InMesh.GetVertexVertexInstanceIDs(VertexID);
+                if (VertexInstances.Num() > 0) {
+                    FVector4f Color = InVertexInstanceColors[VertexInstances[0]];
+                    OutMesh.vert[VCGVertIdx].C() =
+                        vcg::Color4b((uint8)(Color.X * 255.f), (uint8)(Color.Y * 255.f),
+                                     (uint8)(Color.Z * 255.f), (uint8)(Color.W * 255.f));
+                } else {
+                    OutMesh.vert[VCGVertIdx].C() = vcg::Color4b::White;
+                }
+            } else {
+                OutMesh.vert[VCGVertIdx].C() = vcg::Color4b::White;
+            }
+
             VertexIDToVCGIndex.Add(VertexID, VCGVertIdx);
             VCGVertIdx++;
         }
 
-        // Add Faces (Triangles)
-        vcg::tri::Allocator<MyMesh>::AddFaces(m, InMesh.Triangles().Num());
+        // 2. Add Faces (Triangles)
+        vcg::tri::Allocator<MyMesh>::AddFaces(OutMesh, InMesh.Triangles().Num());
         int32 VCGFaceIdx = 0;
 
         for (const FTriangleID TriangleID : InMesh.Triangles().GetElementIDs()) {
             TArrayView<const FVertexInstanceID> VertexInstances =
                 InMesh.GetTriangleVertexInstances(TriangleID);
+
             if (VertexInstances.Num() != 3)
                 continue; // Should be triangle
 
@@ -75,37 +90,97 @@ class FVCGMeshReduction : public IMeshReduction {
                 FVertexID VertexID           = InMesh.GetVertexInstanceVertex(InstanceID);
 
                 if (int32 *IdxPtr = VertexIDToVCGIndex.Find(VertexID)) {
-                    m.face[VCGFaceIdx].V(j) = &m.vert[*IdxPtr];
+                    OutMesh.face[VCGFaceIdx].V(j) = &OutMesh.vert[*IdxPtr];
                 } else {
                     bHasMissingVertex = true;
                 }
 
                 // UVs - Channel 0
                 if (InVertexInstanceUVs.GetNumChannels() > 0) {
-                    FVector2f UV             = InVertexInstanceUVs.Get(InstanceID, 0);
-                    m.face[VCGFaceIdx].WT(j) = vcg::TexCoord2f(UV.X, UV.Y);
+                    FVector2f UV                   = InVertexInstanceUVs.Get(InstanceID, 0);
+                    OutMesh.face[VCGFaceIdx].WT(j) = vcg::TexCoord2f(UV.X, UV.Y);
                 }
             }
+
+            // Material ID
+            FPolygonGroupID GroupID        = InMesh.GetTrianglePolygonGroup(TriangleID);
+            OutMesh.face[VCGFaceIdx].matId = GroupID.GetValue();
 
             if (!bHasMissingVertex) {
                 VCGFaceIdx++;
             }
         }
 
-        // Resize faces vector to actual count if we skipped any
-        if (VCGFaceIdx < m.face.size()) {
-            m.face.resize(VCGFaceIdx);
-            m.fn = VCGFaceIdx;
+        // Log unique material IDs found during conversion
+        TMap<int32, int32> MatCounts;
+        for (int i = 0; i < VCGFaceIdx; ++i) {
+            MatCounts.FindOrAdd(OutMesh.face[i].matId)++;
         }
+        UE_LOG(LogVCGMeshReduction, Log,
+               TEXT("ConvertToVCGMesh - Summary: Found %d unique materials"), MatCounts.Num());
+        for (const auto &Pair : MatCounts) {
+            UE_LOG(LogVCGMeshReduction, Log, TEXT("  MatID: %d -> %d faces"), Pair.Key, Pair.Value);
+        }
+
+        // Resize faces vector to actual count if we skipped any
+        if (VCGFaceIdx < OutMesh.face.size()) {
+            OutMesh.face.resize(VCGFaceIdx);
+            OutMesh.fn = VCGFaceIdx;
+        }
+    }
+
+    // IMeshReduction interface - UE5 Adapter
+
+    virtual void
+    ReduceMeshDescription(FMeshDescription &OutReducedMesh, float &OutMaxDeviation,
+                          const FMeshDescription &InMesh,
+                          const FOverlappingCorners &InOverlappingCorners,
+                          const struct FMeshReductionSettings &ReductionSettings) override {
+        UE_LOG(LogVCGMeshReduction, Log, TEXT("ReduceMeshDescription - Start. Target Percent: %f"),
+               ReductionSettings.PercentTriangles);
+
+        MyMesh m;
+
+        // 1. Convert FMeshDescription to MyMesh
+        ConvertToVCGMesh(InMesh, m);
 
         // 2. Simplify
         Simplifier::Clean(m);
-
         Simplifier::Params params;
         params.ratio = ReductionSettings.PercentTriangles;
-        // Map other settings if needed
+        // Map Importance settings
+        auto ImportanceToWeight = [](uint8 Importance) -> double {
+            switch (Importance) {
+            case 0:
+                return 0.0; // Off
+            case 1:
+                return 0.25; // Lowest
+            case 2:
+                return 0.5; // Low
+            case 3:
+                return 1.0; // Normal
+            case 4:
+                return 3.0; // High
+            case 5:
+                return 10.0; // Highest
+            default:
+                return 1.0;
+            }
+        };
+
+        params.extraTCoordWeight = ImportanceToWeight((uint8)ReductionSettings.TextureImportance);
+        params.boundaryWeight = ImportanceToWeight((uint8)ReductionSettings.SilhouetteImportance);
+
+        if ((uint8)ReductionSettings.ShadingImportance >= 4) {
+            params.normalCheck = true;
+        }
 
         Simplifier::Simplify(m, params);
+        Simplifier::Clean(m);
+
+        UE_LOG(LogVCGMeshReduction, Log,
+               TEXT("Simplification Done. VCG Mesh Vertices: %d, Faces: %d"), m.vert.size(),
+               m.face.size());
 
         // 3. Convert MyMesh back to FMeshDescription
         OutReducedMesh.Empty();
@@ -118,8 +193,42 @@ class FVCGMeshReduction : public IMeshReduction {
         TVertexInstanceAttributesRef<FVector3f> OutNormals =
             OutAttributes.GetVertexInstanceNormals();
 
-        // Create Default PolygonGroup (Material Slot)
-        FPolygonGroupID PolygonGroupID = OutReducedMesh.CreatePolygonGroup();
+        bool bHasVertexColors =
+            InMesh.VertexInstanceAttributes().HasAttribute(MeshAttribute::VertexInstance::Color);
+        if (bHasVertexColors) {
+            OutReducedMesh.VertexInstanceAttributes().RegisterAttribute<FVector4f>(
+                MeshAttribute::VertexInstance::Color);
+        }
+        TVertexInstanceAttributesRef<FVector4f> OutColors = OutAttributes.GetVertexInstanceColors();
+
+        // Reconstruct PolygonGroups (Materials) from Input
+        TMap<int32, FPolygonGroupID> MatIdToNewPolygonGroup;
+        FStaticMeshConstAttributes InAttributes(InMesh);
+
+        TPolygonGroupAttributesConstRef<FName> InSlotNames =
+            InAttributes.GetPolygonGroupMaterialSlotNames();
+        TPolygonGroupAttributesRef<FName> OutSlotNames =
+            OutAttributes.GetPolygonGroupMaterialSlotNames();
+
+        UE_LOG(LogVCGMeshReduction, Log, TEXT("Reconstruction Info: HasColors: %d"),
+               bHasVertexColors);
+
+        TSet<int32> UniqueMatIds;
+        for (int i = 0; i < m.face.size(); ++i) {
+            if (!m.face[i].IsD()) {
+                UniqueMatIds.Add(m.face[i].matId);
+            }
+        }
+        UE_LOG(LogVCGMeshReduction, Log,
+               TEXT("Input Mesh PolygonGroups: %d, Unique Material IDs in VCG Faces: %d"),
+               InMesh.PolygonGroups().Num(), UniqueMatIds.Num());
+
+        for (const FPolygonGroupID InputGroupID : InMesh.PolygonGroups().GetElementIDs()) {
+            FPolygonGroupID NewGroupID = OutReducedMesh.CreatePolygonGroup();
+            MatIdToNewPolygonGroup.Add(InputGroupID.GetValue(), NewGroupID);
+
+            OutSlotNames[NewGroupID] = InSlotNames[InputGroupID];
+        }
 
         // Reconstruct Vertices
         TMap<MyVertex *, FVertexID> VCGPtrToVertexID;
@@ -149,10 +258,17 @@ class FVCGMeshReduction : public IMeshReduction {
                         vcg::TexCoord2f &uv = m.face[i].WT(j);
                         OutUVs.Set(CornerInstances[j], 0, FVector2f(uv.U(), uv.V()));
 
+                        // Color
+                        vcg::Color4b &c = m.face[i].V(j)->C();
+                        if (bHasVertexColors) {
+                            OutColors[CornerInstances[j]] =
+                                FVector4f(c[0] / 255.f, c[1] / 255.f, c[2] / 255.f, c[3] / 255.f);
+                        }
+
                         // Normal
-                        // Re-use face normal for all corners (flat shading) or use VCG's logic if
-                        // IsW() etc. Simplifier::Simplify computes normals.
-                        vcg::Point3f &n                = m.face[i].N();
+                        // Use vertex normal for smooth shading
+                        // 如果需要平面着色，可以使用 face[i].N()
+                        vcg::Point3f &n                = m.face[i].V(j)->N();
                         OutNormals[CornerInstances[j]] = FVector3f(n.X(), n.Y(), n.Z());
                     } else {
                         bValidFace = false;
@@ -160,10 +276,26 @@ class FVCGMeshReduction : public IMeshReduction {
                 }
 
                 if (bValidFace) {
-                    OutReducedMesh.CreatePolygon(PolygonGroupID, CornerInstances);
+                    FPolygonGroupID GroupID(INDEX_NONE);
+                    if (FPolygonGroupID *FoundGroup =
+                            MatIdToNewPolygonGroup.Find(m.face[i].matId)) {
+                        GroupID = *FoundGroup;
+                    } else if (OutReducedMesh.PolygonGroups().Num() > 0) {
+                        GroupID = *OutReducedMesh.PolygonGroups().GetElementIDs().begin();
+                    } else {
+                        GroupID = OutReducedMesh.CreatePolygonGroup();
+                        MatIdToNewPolygonGroup.Add(m.face[i].matId, GroupID);
+                    }
+                    OutReducedMesh.CreatePolygon(GroupID, CornerInstances);
                 }
             }
         }
+
+        UE_LOG(LogVCGMeshReduction, Log,
+               TEXT("ReduceMeshDescription - Finished. Output Vertices: %d, Polygons: %d"),
+               OutReducedMesh.Vertices().Num(), OutReducedMesh.Polygons().Num());
+        // 4. Recompute Tangents
+        FStaticMeshOperations::ComputeTriangleTangentsAndNormals(OutReducedMesh);
 
         OutMaxDeviation = 0.0f;
     }
@@ -213,9 +345,10 @@ void FVCGMeshReductionModule::StartupModule() {
 }
 
 void FVCGMeshReductionModule::ShutdownModule() {
-    GVCGMeshReduction = nullptr;
     IModularFeatures::Get().UnregisterModularFeature(IMeshReductionModule::GetModularFeatureName(),
                                                      this);
+
+    GVCGMeshReduction = nullptr;
 }
 
 IMeshReduction *FVCGMeshReductionModule::GetStaticMeshReductionInterface() {

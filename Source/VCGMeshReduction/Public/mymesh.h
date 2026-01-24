@@ -17,11 +17,14 @@ struct MyUsedTypes
     : public vcg::UsedTypes<vcg::Use<MyVertex>::AsVertexType, vcg::Use<MyEdge>::AsEdgeType,
                             vcg::Use<MyFace>::AsFaceType> {};
 class MyVertex : public vcg::Vertex<MyUsedTypes, vcg::vertex::Coord3f, vcg::vertex::Normal3f,
-                                    vcg::vertex::BitFlags, vcg::vertex::Mark, vcg::vertex::VFAdj> {
-};
+                                    vcg::vertex::Color4b, vcg::vertex::BitFlags, vcg::vertex::Mark,
+                                    vcg::vertex::VFAdj> {};
 class MyFace : public vcg::Face<MyUsedTypes, vcg::face::VertexRef, vcg::face::Normal3f,
                                 vcg::face::WedgeTexCoord2f, vcg::face::BitFlags, vcg::face::Mark,
-                                vcg::face::FFAdj, vcg::face::VFAdj> {};
+                                vcg::face::FFAdj, vcg::face::VFAdj> {
+  public:
+    int matId = 0;
+};
 class MyEdge : public vcg::Edge<MyUsedTypes> {};
 class MyMesh
     : public vcg::tri::TriMesh<std::vector<MyVertex>, std::vector<MyFace>, std::vector<MyEdge>> {};
