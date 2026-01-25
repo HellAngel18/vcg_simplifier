@@ -1,5 +1,7 @@
 #include "simplifier.h"
 #include <vcg/complex/algorithms/local_optimization.h>
+#include <vcg/complex/algorithms/local_optimization/tri_edge_collapse_quadric.h>
+#include <vcg/complex/algorithms/local_optimization/tri_edge_collapse_quadric_tex.h>
 
 void Simplifier::Clean(MyMesh &m) {
     vcg::tri::Clean<MyMesh>::RemoveDuplicateVertex(m);
@@ -9,17 +11,11 @@ void Simplifier::Clean(MyMesh &m) {
     vcg::tri::Clean<MyMesh>::RemoveUnreferencedVertex(m);
     vcg::tri::Allocator<MyMesh>::CompactEveryVector(m);
 }
-
+// TODO: Add callback
 void Simplifier::Simplify(MyMesh &m, const Params &params) {
-    // 拓扑更新
-    vcg::tri::UpdateTopology<MyMesh>::FaceFace(m);
-    vcg::tri::UpdateTopology<MyMesh>::VertexFace(m);
     vcg::tri::UpdateFlags<MyMesh>::FaceBorderFromVF(m);
-    vcg::tri::UpdateNormal<MyMesh>::PerFaceNormalized(m);
-    vcg::tri::UpdateNormal<MyMesh>::PerVertex(m);
-    vcg::tri::UpdateNormal<MyMesh>::NormalizePerVertex(m);
-
-    // 简化初始化
+    // 简化
+    vcg::tri::UpdateNormal<MyMesh>::PerFace(m);
     vcg::math::Quadric<double> QZero;
     QZero.SetZero();
     vcg::tri::QuadricTexHelper<MyMesh>::QuadricTemp TD3(m.vert, QZero);
@@ -39,21 +35,24 @@ void Simplifier::Simplify(MyMesh &m, const Params &params) {
     pp.NormalCheck       = params.normalCheck;
     pp.OptimalPlacement  = params.optimalPlacement;
 
-    int targetFaceCount;
-    if (params.targetFaceCount > 0) {
-        targetFaceCount = params.targetFaceCount;
-    } else {
-        targetFaceCount = (int)(m.fn * params.ratio);
+    vcg::LocalOptimization<MyMesh> DeciSession(m, &pp);
+    DeciSession.Init<MyCollapse>();
+    DeciSession.SetTargetSimplices(params.targetFaceCount);
+    DeciSession.SetTimeBudget(0.1f);
+    int faceToDel = m.face.size() - params.targetFaceCount;
+    while (DeciSession.DoOptimization() && m.fn > params.targetFaceCount) {
+        // 可以在这里添加进度更新的回调
     }
-
-    vcg::LocalOptimization<MyMesh> Deci(m, &pp);
-    Deci.Init<MyCollapse>();
-    Deci.SetTargetSimplices(targetFaceCount);
-    Deci.DoOptimization();
-    Deci.Finalize<MyCollapse>();
-
-    vcg::tri::QuadricTexHelper<MyMesh>::TDp3() = nullptr;
+    DeciSession.Finalize<MyCollapse>();
     vcg::tri::QuadricTexHelper<MyMesh>::TDp()  = nullptr;
-
-    vcg::tri::Allocator<MyMesh>::CompactEveryVector(m);
+    vcg::tri::QuadricTexHelper<MyMesh>::TDp3() = nullptr;
+    // 更新法线
+    vcg::tri::UpdateBounding<MyMesh>::Box(m);
+    if (m.fn > 0) {
+        vcg::tri::UpdateNormal<MyMesh>::PerFaceNormalized(m);
+        vcg::tri::UpdateNormal<MyMesh>::PerVertexAngleWeighted(m);
+    }
+    vcg::tri::UpdateNormal<MyMesh>::NormalizePerFace(m);
+    vcg::tri::UpdateNormal<MyMesh>::PerVertexFromCurrentFaceNormal(m);
+    vcg::tri::UpdateNormal<MyMesh>::NormalizePerVertex(m);
 }

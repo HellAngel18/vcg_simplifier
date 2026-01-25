@@ -129,6 +129,117 @@ class FVCGMeshReduction : public IMeshReduction {
         }
     }
 
+    void ConvertToFMeshDescription(const MyMesh &InVCGMesh, const FMeshDescription &OriginalMesh,
+                                   FMeshDescription &OutMesh) {
+        OutMesh.Empty();
+
+        FStaticMeshAttributes OutAttributes(OutMesh);
+        OutAttributes.Register();
+
+        TVertexAttributesRef<FVector3f> OutPositions   = OutAttributes.GetVertexPositions();
+        TVertexInstanceAttributesRef<FVector2f> OutUVs = OutAttributes.GetVertexInstanceUVs();
+        TVertexInstanceAttributesRef<FVector3f> OutNormals =
+            OutAttributes.GetVertexInstanceNormals();
+
+        bool bHasVertexColors = OriginalMesh.VertexInstanceAttributes().HasAttribute(
+            MeshAttribute::VertexInstance::Color);
+        if (bHasVertexColors) {
+            OutMesh.VertexInstanceAttributes().RegisterAttribute<FVector4f>(
+                MeshAttribute::VertexInstance::Color);
+        }
+        TVertexInstanceAttributesRef<FVector4f> OutColors = OutAttributes.GetVertexInstanceColors();
+
+        // Reconstruct PolygonGroups (Materials) from Input
+        TMap<int32, FPolygonGroupID> MatIdToNewPolygonGroup;
+        FStaticMeshConstAttributes InAttributes(OriginalMesh);
+
+        TPolygonGroupAttributesConstRef<FName> InSlotNames =
+            InAttributes.GetPolygonGroupMaterialSlotNames();
+        TPolygonGroupAttributesRef<FName> OutSlotNames =
+            OutAttributes.GetPolygonGroupMaterialSlotNames();
+
+        UE_LOG(LogVCGMeshReduction, Log, TEXT("Reconstruction Info: HasColors: %d"),
+               bHasVertexColors);
+
+        TSet<int32> UniqueMatIds;
+        for (int i = 0; i < InVCGMesh.face.size(); ++i) {
+            if (!InVCGMesh.face[i].IsD()) {
+                UniqueMatIds.Add(InVCGMesh.face[i].matId);
+            }
+        }
+        UE_LOG(LogVCGMeshReduction, Log,
+               TEXT("Input Mesh PolygonGroups: %d, Unique Material IDs in VCG Faces: %d"),
+               OriginalMesh.PolygonGroups().Num(), UniqueMatIds.Num());
+
+        for (const FPolygonGroupID InputGroupID : OriginalMesh.PolygonGroups().GetElementIDs()) {
+            FPolygonGroupID NewGroupID = OutMesh.CreatePolygonGroup();
+            MatIdToNewPolygonGroup.Add(InputGroupID.GetValue(), NewGroupID);
+
+            OutSlotNames[NewGroupID] = InSlotNames[InputGroupID];
+        }
+
+        // Reconstruct Vertices
+        TMap<const MyVertex *, FVertexID> VCGPtrToVertexID;
+
+        for (int i = 0; i < InVCGMesh.vert.size(); ++i) {
+            if (!InVCGMesh.vert[i].IsD()) {
+                FVertexID NewVertID     = OutMesh.CreateVertex();
+                const vcg::Point3f &P   = InVCGMesh.vert[i].P();
+                OutPositions[NewVertID] = FVector3f(P.X(), P.Y(), P.Z());
+                VCGPtrToVertexID.Add(&InVCGMesh.vert[i], NewVertID);
+            }
+        }
+
+        // Reconstruct Faces
+        for (int i = 0; i < InVCGMesh.face.size(); ++i) {
+            if (!InVCGMesh.face[i].IsD()) {
+                FVertexInstanceID CornerInstances[3];
+                bool bValidFace = true;
+
+                for (int j = 0; j < 3; ++j) {
+                    const MyVertex *v = InVCGMesh.face[i].V(j);
+                    if (FVertexID *PID = VCGPtrToVertexID.Find(v)) {
+                        CornerInstances[j] = OutMesh.CreateVertexInstance(*PID);
+
+                        // The simplifier might compact UVs or just keep them on faces.
+                        // VCG stores per-face-vertex UVs in WT
+                        const vcg::TexCoord2f &uv = InVCGMesh.face[i].WT(j);
+                        OutUVs.Set(CornerInstances[j], 0, FVector2f(uv.U(), uv.V()));
+
+                        // Color
+                        const vcg::Color4b &c = InVCGMesh.face[i].V(j)->C();
+                        if (bHasVertexColors) {
+                            OutColors[CornerInstances[j]] =
+                                FVector4f(c[0] / 255.f, c[1] / 255.f, c[2] / 255.f, c[3] / 255.f);
+                        }
+
+                        // Normal
+                        // Use vertex normal for smooth shading
+                        // 如果需要平面着色，可以使用 face[i].N()
+                        const vcg::Point3f &n          = InVCGMesh.face[i].V(j)->N();
+                        OutNormals[CornerInstances[j]] = FVector3f(n.X(), n.Y(), n.Z());
+                    } else {
+                        bValidFace = false;
+                    }
+                }
+
+                if (bValidFace) {
+                    FPolygonGroupID GroupID(INDEX_NONE);
+                    if (FPolygonGroupID *FoundGroup =
+                            MatIdToNewPolygonGroup.Find(InVCGMesh.face[i].matId)) {
+                        GroupID = *FoundGroup;
+                    } else if (OutMesh.PolygonGroups().Num() > 0) {
+                        GroupID = *OutMesh.PolygonGroups().GetElementIDs().begin();
+                    } else {
+                        GroupID = OutMesh.CreatePolygonGroup();
+                        MatIdToNewPolygonGroup.Add(InVCGMesh.face[i].matId, GroupID);
+                    }
+                    OutMesh.CreatePolygon(GroupID, CornerInstances);
+                }
+            }
+        }
+    }
+
     // IMeshReduction interface - UE5 Adapter
 
     virtual void
@@ -143,9 +254,6 @@ class FVCGMeshReduction : public IMeshReduction {
 
         // 1. Convert FMeshDescription to MyMesh
         ConvertToVCGMesh(InMesh, m);
-
-        // 2. Simplify
-        Simplifier::Clean(m);
         Simplifier::Params params;
         params.ratio = ReductionSettings.PercentTriangles;
         // Map Importance settings
@@ -183,113 +291,7 @@ class FVCGMeshReduction : public IMeshReduction {
                m.face.size());
 
         // 3. Convert MyMesh back to FMeshDescription
-        OutReducedMesh.Empty();
-
-        FStaticMeshAttributes OutAttributes(OutReducedMesh);
-        OutAttributes.Register();
-
-        TVertexAttributesRef<FVector3f> OutPositions   = OutAttributes.GetVertexPositions();
-        TVertexInstanceAttributesRef<FVector2f> OutUVs = OutAttributes.GetVertexInstanceUVs();
-        TVertexInstanceAttributesRef<FVector3f> OutNormals =
-            OutAttributes.GetVertexInstanceNormals();
-
-        bool bHasVertexColors =
-            InMesh.VertexInstanceAttributes().HasAttribute(MeshAttribute::VertexInstance::Color);
-        if (bHasVertexColors) {
-            OutReducedMesh.VertexInstanceAttributes().RegisterAttribute<FVector4f>(
-                MeshAttribute::VertexInstance::Color);
-        }
-        TVertexInstanceAttributesRef<FVector4f> OutColors = OutAttributes.GetVertexInstanceColors();
-
-        // Reconstruct PolygonGroups (Materials) from Input
-        TMap<int32, FPolygonGroupID> MatIdToNewPolygonGroup;
-        FStaticMeshConstAttributes InAttributes(InMesh);
-
-        TPolygonGroupAttributesConstRef<FName> InSlotNames =
-            InAttributes.GetPolygonGroupMaterialSlotNames();
-        TPolygonGroupAttributesRef<FName> OutSlotNames =
-            OutAttributes.GetPolygonGroupMaterialSlotNames();
-
-        UE_LOG(LogVCGMeshReduction, Log, TEXT("Reconstruction Info: HasColors: %d"),
-               bHasVertexColors);
-
-        TSet<int32> UniqueMatIds;
-        for (int i = 0; i < m.face.size(); ++i) {
-            if (!m.face[i].IsD()) {
-                UniqueMatIds.Add(m.face[i].matId);
-            }
-        }
-        UE_LOG(LogVCGMeshReduction, Log,
-               TEXT("Input Mesh PolygonGroups: %d, Unique Material IDs in VCG Faces: %d"),
-               InMesh.PolygonGroups().Num(), UniqueMatIds.Num());
-
-        for (const FPolygonGroupID InputGroupID : InMesh.PolygonGroups().GetElementIDs()) {
-            FPolygonGroupID NewGroupID = OutReducedMesh.CreatePolygonGroup();
-            MatIdToNewPolygonGroup.Add(InputGroupID.GetValue(), NewGroupID);
-
-            OutSlotNames[NewGroupID] = InSlotNames[InputGroupID];
-        }
-
-        // Reconstruct Vertices
-        TMap<MyVertex *, FVertexID> VCGPtrToVertexID;
-
-        for (int i = 0; i < m.vert.size(); ++i) {
-            if (!m.vert[i].IsD()) {
-                FVertexID NewVertID     = OutReducedMesh.CreateVertex();
-                vcg::Point3f &P         = m.vert[i].P();
-                OutPositions[NewVertID] = FVector3f(P.X(), P.Y(), P.Z());
-                VCGPtrToVertexID.Add(&m.vert[i], NewVertID);
-            }
-        }
-
-        // Reconstruct Faces
-        for (int i = 0; i < m.face.size(); ++i) {
-            if (!m.face[i].IsD()) {
-                FVertexInstanceID CornerInstances[3];
-                bool bValidFace = true;
-
-                for (int j = 0; j < 3; ++j) {
-                    MyVertex *v = m.face[i].V(j);
-                    if (FVertexID *PID = VCGPtrToVertexID.Find(v)) {
-                        CornerInstances[j] = OutReducedMesh.CreateVertexInstance(*PID);
-
-                        // The simplifier might compact UVs or just keep them on faces.
-                        // VCG stores per-face-vertex UVs in WT
-                        vcg::TexCoord2f &uv = m.face[i].WT(j);
-                        OutUVs.Set(CornerInstances[j], 0, FVector2f(uv.U(), uv.V()));
-
-                        // Color
-                        vcg::Color4b &c = m.face[i].V(j)->C();
-                        if (bHasVertexColors) {
-                            OutColors[CornerInstances[j]] =
-                                FVector4f(c[0] / 255.f, c[1] / 255.f, c[2] / 255.f, c[3] / 255.f);
-                        }
-
-                        // Normal
-                        // Use vertex normal for smooth shading
-                        // 如果需要平面着色，可以使用 face[i].N()
-                        vcg::Point3f &n                = m.face[i].V(j)->N();
-                        OutNormals[CornerInstances[j]] = FVector3f(n.X(), n.Y(), n.Z());
-                    } else {
-                        bValidFace = false;
-                    }
-                }
-
-                if (bValidFace) {
-                    FPolygonGroupID GroupID(INDEX_NONE);
-                    if (FPolygonGroupID *FoundGroup =
-                            MatIdToNewPolygonGroup.Find(m.face[i].matId)) {
-                        GroupID = *FoundGroup;
-                    } else if (OutReducedMesh.PolygonGroups().Num() > 0) {
-                        GroupID = *OutReducedMesh.PolygonGroups().GetElementIDs().begin();
-                    } else {
-                        GroupID = OutReducedMesh.CreatePolygonGroup();
-                        MatIdToNewPolygonGroup.Add(m.face[i].matId, GroupID);
-                    }
-                    OutReducedMesh.CreatePolygon(GroupID, CornerInstances);
-                }
-            }
-        }
+        ConvertToFMeshDescription(m, InMesh, OutReducedMesh);
 
         UE_LOG(LogVCGMeshReduction, Log,
                TEXT("ReduceMeshDescription - Finished. Output Vertices: %d, Polygons: %d"),
