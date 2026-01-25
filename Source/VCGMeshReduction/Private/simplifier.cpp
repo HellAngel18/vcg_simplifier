@@ -14,10 +14,7 @@ void Simplifier::Clean(MyMesh &m) {
 
 void Simplifier::Simplify(MyMesh &m, const Params &params) {
     // Preprocess
-    m.vert.EnableVFAdjacency();
-    m.face.EnableVFAdjacency();
     vcg::tri::UpdateTopology<MyMesh>::VertexFace(m);
-    m.vert.EnableMark();
     vcg::tri::UpdateTopology<MyMesh>::FaceFace(m);
 
     vcg::tri::UpdateFlags<MyMesh>::FaceBorderFromVF(m);
