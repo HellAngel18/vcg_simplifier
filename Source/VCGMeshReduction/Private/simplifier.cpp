@@ -11,8 +11,15 @@ void Simplifier::Clean(MyMesh &m) {
     vcg::tri::Clean<MyMesh>::RemoveUnreferencedVertex(m);
     vcg::tri::Allocator<MyMesh>::CompactEveryVector(m);
 }
-// TODO: Add callback
+
 void Simplifier::Simplify(MyMesh &m, const Params &params) {
+    // Preprocess
+    m.vert.EnableVFAdjacency();
+    m.face.EnableVFAdjacency();
+    vcg::tri::UpdateTopology<MyMesh>::VertexFace(m);
+    m.vert.EnableMark();
+    vcg::tri::UpdateTopology<MyMesh>::FaceFace(m);
+
     vcg::tri::UpdateFlags<MyMesh>::FaceBorderFromVF(m);
     // 简化
     vcg::tri::UpdateNormal<MyMesh>::PerFace(m);
@@ -35,12 +42,17 @@ void Simplifier::Simplify(MyMesh &m, const Params &params) {
     pp.NormalCheck       = params.normalCheck;
     pp.OptimalPlacement  = params.optimalPlacement;
 
+    int targetCount = params.targetFaceCount;
+    if (targetCount < 0) {
+        targetCount = (int)(m.fn * params.ratio);
+    }
+
     vcg::LocalOptimization<MyMesh> DeciSession(m, &pp);
     DeciSession.Init<MyCollapse>();
-    DeciSession.SetTargetSimplices(params.targetFaceCount);
+    DeciSession.SetTargetSimplices(targetCount);
     DeciSession.SetTimeBudget(0.1f);
-    int faceToDel = m.face.size() - params.targetFaceCount;
-    while (DeciSession.DoOptimization() && m.fn > params.targetFaceCount) {
+
+    while (DeciSession.DoOptimization() && m.fn > targetCount) {
         // 可以在这里添加进度更新的回调
     }
     DeciSession.Finalize<MyCollapse>();

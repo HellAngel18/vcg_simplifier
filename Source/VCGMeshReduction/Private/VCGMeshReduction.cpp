@@ -283,8 +283,9 @@ class FVCGMeshReduction : public IMeshReduction {
             params.normalCheck = true;
         }
 
-        Simplifier::Simplify(m, params);
         Simplifier::Clean(m);
+
+        Simplifier::Simplify(m, params);
 
         UE_LOG(LogVCGMeshReduction, Log,
                TEXT("Simplification Done. VCG Mesh Vertices: %d, Faces: %d"), m.vert.size(),
